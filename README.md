@@ -35,6 +35,8 @@ Create a stack from `template.json` with:
 | `RingWebhookHmacKey` | the HMAC key from your Ring partner credentials (NoEcho; empty = webhooks answered 503) |
 | `CodeBucket`, `CodeKey` | where you uploaded the zip |
 
+The HMAC key must be at least 16 characters: the template accepts 16–256 printable ASCII characters without spaces, and the mailbox refuses every signature made with a shorter key.
+
 Outputs: `WebhookUrl` (register it as your Ring app's webhook URL) and `MailboxBaseUrl` (for the hub).
 
 Resources: one DynamoDB table (on-demand, TTL, encrypted), one Lambda function (arm64, 5 s timeout) with a role that can only `GetItem` / `PutItem` on that table and write its own logs, and a function URL.
@@ -62,7 +64,7 @@ The first pull only records the queue position, so events that arrived before th
 
 ## Event types kept
 
-`button_press`, `motion_detected` (with `sub_type`, e.g. `human`), `person_detected`, `device_online`, `device_offline`. Other types are acknowledged (2xx) and not stored; pass `eventTypes` to `createMailbox` to change the list.
+`button_press`, `motion_detected` (with `sub_type`, e.g. `human`), `person_detected`, `device_online`, `device_offline`. Other types are acknowledged (2xx) and not stored. To change the list, pass `eventTypes` to `createMailbox` in your own handler; the deployed `src/handler.mjs` does not pass it, so it keeps these five.
 
 ## Tests
 
