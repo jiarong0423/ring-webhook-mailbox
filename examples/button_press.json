@@ -1,0 +1,1 @@
+{"meta":{"version":"1.1","time":"2026-10-16T09:58:00.000Z","request_id":"example-request-0001","account_id":"example-account"},"data":{"id":"example-device_button_press_1792123080000","type":"button_press","attributes":{"source":"example-device","source_type":"devices","timestamp":1792123080000},"relationships":{"devices":{"links":{"self":"/v1/devices/example-device"}}}}}

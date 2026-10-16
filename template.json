@@ -1,0 +1,80 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "ring-webhook-mailbox: a public HTTPS mailbox for Ring partner webhooks (X-Signature checked, repeats dropped) that a home hub behind NAT pulls with Ed25519-signed requests. One Lambda function URL, one DynamoDB table with TTL, a role limited to that table.",
+  "Parameters": {
+    "HubPublicKeySpki": {
+      "Type": "String",
+      "Description": "Your hub's Ed25519 PUBLIC key (SPKI DER, base64url). Pulls not signed by the matching private key are refused.",
+      "AllowedPattern": "^[A-Za-z0-9_-]{40,120}$"
+    },
+    "RingWebhookHmacKey": {
+      "Type": "String",
+      "NoEcho": true,
+      "Default": "",
+      "Description": "The HMAC signing key issued with your Ring partner credentials. Empty = POST /ring/webhook answers 503.",
+      "AllowedPattern": "^$|^[\\x21-\\x7e]{16,256}$"
+    },
+    "CodeBucket": { "Type": "String", "AllowedPattern": "^[a-z0-9][a-z0-9.-]{2,62}$" },
+    "CodeKey": { "Type": "String", "AllowedPattern": "^[A-Za-z0-9._/-]{1,512}\\.zip$" }
+  },
+  "Resources": {
+    "MailboxTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [{ "AttributeName": "pk", "AttributeType": "S" }],
+        "KeySchema": [{ "AttributeName": "pk", "KeyType": "HASH" }],
+        "TimeToLiveSpecification": { "AttributeName": "expires_at", "Enabled": true },
+        "SSESpecification": { "SSEEnabled": true }
+      }
+    },
+    "MailboxLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": { "LogGroupName": { "Fn::Sub": "/aws/lambda/${AWS::StackName}-mailbox" }, "RetentionInDays": 7 }
+    },
+    "MailboxRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": { "Version": "2012-10-17", "Statement": [{ "Effect": "Allow", "Principal": { "Service": "lambda.amazonaws.com" }, "Action": "sts:AssumeRole" }] },
+        "Policies": [{
+          "PolicyName": "mailbox-least-privilege",
+          "PolicyDocument": { "Version": "2012-10-17", "Statement": [
+            { "Sid": "MailboxTableOnly", "Effect": "Allow", "Action": ["dynamodb:GetItem", "dynamodb:PutItem"], "Resource": { "Fn::GetAtt": ["MailboxTable", "Arn"] } },
+            { "Sid": "OwnLogsOnly", "Effect": "Allow", "Action": ["logs:CreateLogStream", "logs:PutLogEvents"], "Resource": { "Fn::Sub": "${MailboxLogGroup.Arn}" } }
+          ] }
+        }]
+      }
+    },
+    "MailboxFunction": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": "MailboxLogGroup",
+      "Properties": {
+        "FunctionName": { "Fn::Sub": "${AWS::StackName}-mailbox" },
+        "Runtime": "nodejs22.x",
+        "Architectures": ["arm64"],
+        "Handler": "handler.handler",
+        "MemorySize": 256,
+        "Timeout": 5,
+        "Role": { "Fn::GetAtt": ["MailboxRole", "Arn"] },
+        "Code": { "S3Bucket": { "Ref": "CodeBucket" }, "S3Key": { "Ref": "CodeKey" } },
+        "Environment": { "Variables": { "MAILBOX_TABLE": { "Ref": "MailboxTable" }, "HUB_PUBLIC_KEY_SPKI": { "Ref": "HubPublicKeySpki" }, "RING_WEBHOOK_HMAC_KEY": { "Ref": "RingWebhookHmacKey" } } }
+      }
+    },
+    "MailboxUrl": {
+      "Type": "AWS::Lambda::Url",
+      "Properties": { "AuthType": "NONE", "TargetFunctionArn": { "Fn::GetAtt": ["MailboxFunction", "Arn"] } }
+    },
+    "MailboxUrlInvokePermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": { "Action": "lambda:InvokeFunctionUrl", "FunctionName": { "Ref": "MailboxFunction" }, "Principal": "*", "FunctionUrlAuthType": "NONE" }
+    },
+    "MailboxInvokeViaUrlPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": { "Action": "lambda:InvokeFunction", "FunctionName": { "Ref": "MailboxFunction" }, "Principal": "*", "InvokedViaFunctionUrl": true }
+    }
+  },
+  "Outputs": {
+    "WebhookUrl": { "Description": "Register this as the Webhook URL of your Ring app.", "Value": { "Fn::Sub": "${MailboxUrl.FunctionUrl}ring/webhook" } },
+    "MailboxBaseUrl": { "Description": "Give this to createMailboxClient({ base }).", "Value": { "Fn::GetAtt": ["MailboxUrl", "FunctionUrl"] } }
+  }
+}
