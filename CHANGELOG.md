@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- CI on every push and pull request (GitHub Actions, Node 20.15 and 22): the tests, a JSON check of `template.json`, and a check that two builds of the Lambda bundle give the same sha256.
+
 ## 0.1.0 — 2026-10-17
 
 First release, built during the *Build, Ship, Shape: Amazon Developer Hackathon 2026* (Ring track).

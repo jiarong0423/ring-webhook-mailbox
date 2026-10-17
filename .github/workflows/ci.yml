@@ -1,0 +1,32 @@
+# Every push to main and every pull request: the tests on the oldest supported Node (engines >=20.15) and on Node 22,
+# a check that the CloudFormation template is valid JSON, and a check that the Lambda bundle is deterministic
+# (two builds give the same sha256, which is also its S3 key).
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        node: ['20.15', '22']
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Tests
+        run: npm test
+      - name: Template is valid JSON
+        run: node -e "JSON.parse(require('node:fs').readFileSync('template.json','utf8'))"
+      - name: Bundle is deterministic
+        run: |
+          a=$(node scripts/build.mjs dist-a | node -e "process.stdin.on('data',d=>console.log(JSON.parse(d).sha256))")
+          b=$(node scripts/build.mjs dist-b | node -e "process.stdin.on('data',d=>console.log(JSON.parse(d).sha256))")
+          echo "bundle sha256 $a"
+          [ -n "$a" ] && [ "$a" = "$b" ] || { echo "ERROR: bundle not deterministic ($a vs $b)"; exit 1; }

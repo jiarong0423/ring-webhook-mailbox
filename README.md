@@ -1,5 +1,7 @@
 # ring-webhook-mailbox
 
+[![CI](https://github.com/jiarong0423/ring-webhook-mailbox/actions/workflows/ci.yml/badge.svg)](https://github.com/jiarong0423/ring-webhook-mailbox/actions/workflows/ci.yml)
+
 **Receive Ring partner webhooks on a hub that lives at home, behind NAT.**
 
 Ring delivers events (doorbell press, person detected, device offline, …) as webhooks to a public HTTPS endpoint. A home hub — a Mac mini, a Raspberry Pi, a small server in a cupboard — usually has no public address and should not get one. This project is a tiny AWS mailbox in between:
