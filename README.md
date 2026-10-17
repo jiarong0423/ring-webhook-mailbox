@@ -17,6 +17,22 @@ flowchart LR
 
 Built during the *Build, Ship, Shape: Amazon Developer Hackathon 2026* for [Home MCP Guardian](https://github.com/jiarong0423/ring-home-mcp-hub), where it lets a care hub at home react to a doorbell press or a camera going offline.
 
+## Install
+
+Version **0.1.0** ([CHANGELOG](CHANGELOG.md)). No runtime dependencies besides Node.js ≥ 20.15 (the Lambda uses the AWS SDK that ships with the Node.js runtime).
+
+```bash
+npm install github:jiarong0423/ring-webhook-mailbox#v0.1.0
+```
+
+```js
+import { createMailboxClient, generateHubKey, hubPublicKeySpki } from 'ring-webhook-mailbox/client';   // on the hub
+import { createMailbox, ringSignatureOk } from 'ring-webhook-mailbox';                                  // your own handler
+import { createMemoryStore } from 'ring-webhook-mailbox/store';                                         // tests
+```
+
+Using it in your own project takes four steps: deploy the stack below, register its `WebhookUrl` with your Ring app, give your hub the `MailboxBaseUrl` and its private key, and handle `onEvent` (see *Use it from the hub*). Nothing in it is specific to Home MCP Guardian.
+
 ## Deploy (AWS CloudFormation)
 
 Requirements: an AWS account, Node.js ≥ 20.15, the AWS CLI.
